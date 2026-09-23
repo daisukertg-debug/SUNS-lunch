@@ -4,62 +4,67 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>簡易POS - 注文入力</title>
-    <script src="https://tailwindcss.com"></script>
+    <!-- 確実に読み込まれる最新のTailwind CSS -->
+    <script src="https://jsdelivr.net"></script>
     <style>body { overscroll-behavior-y: contain; }</style>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans antialiased pb-24">
 
     <!-- 【メイン：卓一覧画面】 -->
     <div id="view-tables">
-        <header class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center z-10 shadow-sm">
+        <header class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center z-10 shadow-xs">
             <div>
                 <h1 class="text-lg font-bold text-gray-900">スマートPOS</h1>
                 <p class="text-xs text-gray-500">店舗・卓状況一覧</p>
             </div>
         </header>
 
+        <!-- 稼働状況サマリー -->
         <section class="p-4 grid grid-cols-3 gap-3 bg-white border-b border-gray-200">
             <div class="bg-gray-50 p-3 rounded-xl text-center"><span class="text-xs text-gray-500 block mb-1">総座席数</span><span class="text-xl font-bold text-gray-700">10 卓</span></div>
             <div class="bg-green-50 p-3 rounded-xl text-center"><span class="text-xs text-green-700 block mb-1">空席</span><span id="summary-empty" class="text-xl font-bold text-green-600">10</span></div>
             <div class="bg-amber-50 p-3 rounded-xl text-center"><span class="text-xs text-amber-700 block mb-1">利用中</span><span id="summary-using" class="text-xl font-bold text-amber-600">0</span></div>
         </section>
 
+        <!-- 卓一覧グリッド -->
         <main class="p-4">
             <div class="grid grid-cols-2 gap-4" id="table-grid"></div>
         </main>
 
         <!-- 操作パネル（ボトムシート） -->
         <div id="bottom-sheet" class="fixed inset-0 bg-black/40 z-50 flex items-end justify-center hidden opacity-0 transition-opacity duration-300">
+            <!-- 背後のタップエリア -->
             <div class="absolute inset-0" onclick="closeSheet()"></div>
-            <div class="relative bg-white w-full max-w-md rounded-t-2xl p-6 shadow-xl transform translate-y-full transition-transform duration-300" id="sheet-content">
+            
+            <div class="relative bg-white w-full max-w-md rounded-t-2xl p-6 shadow-xl transform translate-y-full transition-transform duration-300 z-51" id="sheet-content">
                 <div class="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-5"></div>
                 <div class="flex justify-between items-start mb-4">
                     <div>
                         <h3 id="sheet-table-title" class="text-xl font-bold text-gray-900"></h3>
                         <p id="sheet-table-status" class="text-sm font-medium mt-1"></p>
                     </div>
-                    <button onclick="closeSheet()" class="text-gray-400 p-1 bg-gray-100 rounded-full">✕</button>
+                    <button onclick="closeSheet()" class="text-gray-400 p-2 bg-gray-100 rounded-full font-bold">✕</button>
                 </div>
                 <div class="space-y-3" id="sheet-actions"></div>
             </div>
         </div>
     </div>
 
-    <!-- 【サブ：注文入力・メニュー選択画面】（初期状態は非表示） -->
+    <!-- 【サブ：注文入力・メニュー選択画面】 -->
     <div id="view-order" class="hidden fixed inset-0 bg-white z-40 flex flex-col">
-        <header class="bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center shadow-sm">
-            <button onclick="backToTables()" class="text-blue-600 font-bold">← 戻る</button>
+        <header class="bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center shadow-xs">
+            <button onclick="backToTables()" class="text-blue-600 font-bold p-1">← 戻る</button>
             <h2 id="order-screen-title" class="text-lg font-bold text-gray-900">注文入力</h2>
             <div class="w-10"></div>
         </header>
 
-        <!-- メニュ・数量選択リスト -->
-        <main class="flex-1 overflow-y-auto p-4 space-y-4" id="menu-list">
-            <!-- JavaScriptでメニューを自動生成 -->
+        <!-- メニュー・数量選択リスト -->
+        <main class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50" id="menu-list">
+            <!-- JavaScriptで自動生成 -->
         </main>
 
         <!-- 下部注文確定バー -->
-        <footer class="bg-white border-t border-gray-200 p-4 shadow-lg flex justify-between items-center">
+        <footer class="bg-white border-t border-gray-200 p-4 shadow-lg flex justify-between items-center z-50">
             <div>
                 <span class="text-xs text-gray-400 block">合計金額</span>
                 <span id="order-total-amount" class="text-xl font-black text-gray-900">¥0</span>
@@ -81,9 +86,9 @@
 
         let tables = [];
         let activeTableId = null;
-        let currentCart = {}; // 現在入力中の注文カート { menuId: 数量 }
+        let currentCart = {}; // 入力中のカート { menuId: 数量 }
 
-        // 初期化
+        // アプリ起動と初期化
         function initApp() {
             const savedData = localStorage.getItem('pos_demo_tables');
             if (savedData) {
@@ -94,7 +99,7 @@
                     table_number: i + 1,
                     status: 'empty',
                     current_amount: 0,
-                    orders: {} // 確定した注文 { menuId: 数量 }
+                    orders: {}
                 }));
                 saveToStorage();
             }
@@ -115,7 +120,9 @@
                 if (isUsing) usingCount++; else emptyCount++;
 
                 const card = document.createElement('div');
-                card.className = `p-5 rounded-2xl border ${isUsing ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-white border-gray-200 text-gray-700'}`;
+                card.className = `p-5 rounded-2xl border transition-all duration-150 active:scale-98 cursor-pointer shadow-sm ${
+                    isUsing ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-white border-gray-200 text-gray-700'
+                }`;
                 card.onclick = () => openSheet(table.id);
                 card.innerHTML = `
                     <div class="flex justify-between items-start mb-4">
@@ -143,15 +150,16 @@
             if (table.status === 'using') {
                 statusEl.innerHTML = `<span class="text-amber-600 font-bold">● 利用中</span> (現在: ¥${Number(table.current_amount).toLocaleString()})`;
                 actionsEl.innerHTML = `
-                    <button onclick="openOrderScreen()" class="w-full bg-blue-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-md">注文を追加・変更する</button>
-                    <button onclick="clearTable()" class="w-full bg-gray-100 text-red-600 font-bold py-3.5 px-4 rounded-xl">会計して空席に戻す</button>
+                    <button onclick="openOrderScreen()" class="w-full bg-blue-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-md active:bg-blue-700">注文を追加・変更する</button>
+                    <button onclick="clearTable()" class="w-full bg-gray-100 text-red-600 font-bold py-3.5 px-4 rounded-xl active:bg-gray-200">会計して空席に戻す</button>
                 `;
             } else {
                 statusEl.innerHTML = `<span class="text-green-600 font-bold">○ 空席</span>`;
                 actionsEl.innerHTML = `
-                    <button onclick="openOrderScreen()" class="w-full bg-green-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-md">客入れ＆注文を入力する</button>
+                    <button onclick="openOrderScreen()" class="w-full bg-green-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-md active:bg-green-700">客入れ＆注文を入力する</button>
                 `;
             }
+            
             const sheet = document.getElementById('bottom-sheet');
             const content = document.getElementById('sheet-content');
             sheet.classList.remove('hidden');
@@ -165,12 +173,9 @@
             setTimeout(() => { sheet.classList.add('hidden'); activeTableId = null; }, 300);
         }
 
-        // 【注文入力画面を開く】
         function openOrderScreen() {
             const table = tables.find(t => t.id === activeTableId);
             document.getElementById('order-screen-title').innerText = `${table.table_number}番卓 の注文`;
-            
-            // カートの状態を現在の卓の既知の注文で初期化
             currentCart = Object.assign({}, table.orders || {});
             
             renderMenuList();
@@ -193,8 +198,3 @@
             menuItems.forEach(item => {
                 const count = currentCart[item.id] || 0;
                 const div = document.createElement('div');
-                div.className = 'flex justify-between items-center p-4 bg-white rounded-xl border border-gray-200 shadow-sm';
-                div.innerHTML = `
-                    <div>
-                        <span class="font-bold block text-gray-900">${item.name}</span>
-                        <span class="text-sm text-gray-500">¥${item.price.toLocaleString()}</span>
