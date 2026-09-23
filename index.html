@@ -5,46 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>簡易POS - 卓管理</title>
     <script src="https://jsdelivr.net"></script>
-    <!-- Supabase CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>body { overscroll-behavior-y: contain; }</style>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans antialiased pb-24">
 
-    <!-- Supabase設定用オーバーレイ（未接続時に一瞬だけ表示、または未設定時に表示） -->
+    <!-- ワンタップ初期化画面（設定不要） -->
     <div id="setup-overlay" class="fixed inset-0 bg-gray-900/90 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
-            <h2 class="text-xl font-bold text-gray-900 mb-2">Supabase接続設定</h2>
-            <p class="text-xs text-gray-500 mb-4">プロジェクトのAPI情報を入力してアプリを初期化します。</p>
-            <div class="space-y-3 mb-6">
-                <div>
-                    <label class="text-xs font-bold text-gray-700 block mb-1">Project URL</label>
-                    <input id="supa-url" type="text" placeholder="https://xxx.supabase.co" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-gray-50">
-                </div>
-                <div>
-                    <label class="text-xs font-bold text-gray-700 block mb-1">Anon Key</label>
-                    <input id="supa-key" type="password" placeholder="eyJhbGciOi..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-gray-50">
-                </div>
-            </div>
-            <button onclick="saveSettings()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md active:bg-blue-700">接続して初期化</button>
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl text-center">
+            <h2 class="text-xl font-bold text-gray-900 mb-2">スマートPOSシステム</h2>
+            <p class="text-sm text-gray-500 mb-6">デモ用の初期データを自動で作成します。<br>面倒な設定は一切不要です！</p>
+            <button onclick="startApp()" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-md active:bg-blue-700 text-lg">
+                今すぐアプリを起動する
+            </button>
         </div>
     </div>
 
-    <!-- メインコンテンツ -->
+    <!-- メイン画面 -->
     <header class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center z-10 shadow-xs">
         <div>
             <h1 class="text-lg font-bold text-gray-900">スマートPOS</h1>
-            <p class="text-xs text-gray-500">店舗・卓状況一覧</p>
+            <p class="text-xs text-gray-500">店舗・卓状況一覧 (デモ版)</p>
         </div>
-        <div class="flex items-center gap-2">
-            <button onclick="clearSettings()" class="text-xs text-gray-400 border border-gray-200 px-2 py-1 rounded-md hover:bg-gray-50">設定クリア</button>
-            <div id="sync-indicator" class="h-2 w-2 rounded-full bg-red-400"></div>
-        </div>
+        <span class="px-2 py-1 text-xs font-bold bg-green-100 text-green-700 rounded">稼働中</span>
     </header>
 
     <section class="p-4 grid grid-cols-3 gap-3 bg-white border-b border-gray-200">
         <div class="bg-gray-50 p-3 rounded-xl text-center"><span class="text-xs text-gray-500 block mb-1">総座席数</span><span class="text-xl font-bold text-gray-700">10 卓</span></div>
-        <div class="bg-green-50 p-3 rounded-xl text-center"><span class="text-xs text-green-700 block mb-1">空席</span><span id="summary-empty" class="text-xl font-bold text-green-600">0</span></div>
+        <div class="bg-green-50 p-3 rounded-xl text-center"><span class="text-xs text-green-700 block mb-1">空席</span><span id="summary-empty" class="text-xl font-bold text-green-600">10</span></div>
         <div class="bg-amber-50 p-3 rounded-xl text-center"><span class="text-xs text-amber-700 block mb-1">利用中</span><span id="summary-using" class="text-xl font-bold text-amber-600">0</span></div>
     </section>
 
@@ -78,73 +64,31 @@
     </div>
 
     <script>
-        let supabaseClient = null;
         let tables = [];
         let activeTableId = null;
 
-        window.onload = function() {
-            const url = localStorage.getItem('supa_url');
-            const key = localStorage.getItem('supa_key');
-            if (url && key) {
-                document.getElementById('setup-overlay').classList.add('hidden');
-                initSupabase(url, key);
-            } else {
-                document.getElementById('setup-overlay').classList.remove('hidden');
-            }
-        }
-
-        function saveSettings() {
-            const url = document.getElementById('supa-url').value.trim();
-            const key = document.getElementById('supa-key').value.trim();
-            if (!url || !key) return alert('両方入力してください');
-            localStorage.setItem('supa_url', url);
-            localStorage.setItem('supa_key', key);
+        // アプリ起動（データをスマホのメモリ内に自動作成）
+        function startApp() {
             document.getElementById('setup-overlay').classList.add('hidden');
-            initSupabase(url, key);
-        }
-
-        function clearSettings() {
-            localStorage.clear();
-            location.reload();
-        }
-
-        async function initSupabase(url, key) {
-            try {
-                if (typeof supabase === 'undefined') {
-                    alert('Supabaseのライブラリが読み込めていません。ネットワーク状況を確認してください。');
-                    return;
-                }
-                supabaseClient = supabase.createClient(url, key);
-                document.getElementById('sync-indicator').className = 'h-2 w-2 rounded-full bg-green-500';
-                await fetchTables();
-                subscribeRealtime();
-            } catch (e) {
-                alert('接続に失敗しました。設定をクリアしてやり直してください。');
+            
+            // ローカルストレージ（スマホの記憶域）からデータを読み込む、無ければ作る
+            const savedData = localStorage.getItem('pos_demo_tables');
+            if (savedData) {
+                tables = JSON.parse(savedData);
+            } else {
+                tables = Array.from({ length: 10 }, (_, i) => ({
+                    id: i + 1,
+                    table_number: i + 1,
+                    status: 'empty',
+                    current_amount: 0
+                }));
+                saveToStorage();
             }
-        }
-
-        async function fetchTables() {
-            const { data, error } = await supabaseClient.from('tables').select('*').order('table_number', { ascending: true });
-            if (error) {
-                alert('データの取得に失敗しました。テーブルが作成されているか確認してください。');
-                return console.error(error);
-            }
-            tables = data;
             renderTables();
         }
 
-        function subscribeRealtime() {
-            supabaseClient.channel('custom-all-channel')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tables' }, (payload) => {
-                const idx = tables.findIndex(t => t.id === payload.new.id);
-                if (idx !== -1) {
-                    tables[idx] = payload.new;
-                    renderTables();
-                    if (activeTableId === payload.new.id) {
-                        openSheet(activeTableId);
-                    }
-                }
-            }).subscribe();
+        function saveToStorage() {
+            localStorage.setItem('pos_demo_tables', JSON.stringify(tables));
         }
 
         function renderTables() {
@@ -185,3 +129,41 @@
 
             if (table.status === 'using') {
                 statusEl.innerHTML = `<span class="text-amber-600 font-bold">● 利用中</span>`;
+                document.getElementById('sheet-total-preview').innerText = `¥${Number(table.current_amount).toLocaleString()}`;
+                previewEl.classList.remove('hidden');
+                actionsEl.innerHTML = `
+                    <button onclick="alert('ステップ2：注文画面を次で作ります！')" class="w-full bg-blue-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-md">注文を追加・変更する</button>
+                    <button onclick="updateTableStatus('empty', 0)" class="w-full bg-gray-100 text-red-600 font-bold py-3.5 px-4 rounded-xl">会計して空席に戻す</button>
+                `;
+            } else {
+                statusEl.innerHTML = `<span class="text-green-600 font-bold">○ 空席</span>`;
+                previewEl.classList.add('hidden');
+                actionsEl.innerHTML = `
+                    <button onclick="updateTableStatus('using', 850)" class="w-full bg-green-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-md">客入れ（利用中にする）</button>
+                `;
+            }
+            const sheet = document.getElementById('bottom-sheet');
+            const content = document.getElementById('sheet-content');
+            sheet.classList.remove('hidden');
+            setTimeout(() => { sheet.classList.add('opacity-100'); content.classList.remove('translate-y-full'); }, 10);
+        }
+
+        function closeSheet() {
+            const sheet = document.getElementById('bottom-sheet');
+            const content = document.getElementById('sheet-content');
+            sheet.classList.remove('opacity-100'); content.classList.add('translate-y-full');
+            setTimeout(() => { sheet.classList.add('hidden'); activeTableId = null; }, 300);
+        }
+
+        function updateTableStatus(newStatus, amount) {
+            if (!activeTableId) return;
+            const target = tables.find(t => t.id === activeTableId);
+            target.status = newStatus;
+            target.current_amount = amount;
+            saveToStorage();
+            renderTables();
+            closeSheet();
+        }
+    </script>
+</body>
+</html>
