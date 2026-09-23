@@ -3,73 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>簡易POS - 注文入力</title>
-    <!-- Macやスマホでも絶対にエラーにならない安定版のTailwind CSS v3 -->
-    <script src="https://tailwindcss.com"></script>
-    <style>body { overscroll-behavior-y: contain; }</style>
+    <title>簡易POS</title>
+    <!-- 外部URLに依存せず、Safariのブロックを100%回避するための内蔵スタイルシート -->
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { bg-color: #f3f4f6; background-color: #f3f4f6; color: #1f2937; padding: 16px; padding-bottom: 100px; overscroll-behavior-y: contain; }
+        
+        /* 共通ヘッダー・サマリー */
+        header { background-color: #ffffff; padding: 16px; rounded-radius: 12px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 16px; border: 1px solid #e5e7eb; }
+        header h1 { font-size: 20px; font-weight: bold; color: #111827; }
+        header p { font-size: 12px; color: #6b7280; margin-top: 2px; }
+        
+        .summary-box { display: grid; grid-template-cols: repeat(3, 1fr); gap: 8px; text-align: center; font-size: 12px; font-weight: bold; margin-bottom: 16px; }
+        .summary-item { background-color: #ffffff; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; }
+        .summary-empty { background-color: #dcfce7; color: #166534; border: none; }
+        .summary-using { background-color: #fef9c3; color: #854d0e; border: none; }
+        
+        /* 卓一覧グリッド */
+        .table-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+        .table-card { background-color: #ffffff; padding: 20px; border-radius: 16px; border: 2px solid #e5e7eb; cursor: pointer; transition: transform 0.1s; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .table-card:active { transform: scale(0.96); }
+        .table-card.using { background-color: #fffbeb; border-color: #fef08a; color: #78350f; }
+        
+        .card-header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 16px; }
+        .status-badge { font-size: 11px; padding: 2px 8px; border-radius: 9999px; font-weight: bold; }
+        .status-badge.empty { background-color: #d1fae5; color: #065f46; }
+        .status-badge.using { background-color: #fef08a; color: #854d0e; }
+        .card-amount { text-align: right; margin-top: 16px; font-size: 18px; font-weight: 800; color: #d1d5db; }
+        .table-card.using .card-amount { color: #b45309; }
+
+        /* ボトムシート（モーダル） */
+        .modal-overlay { position: fixed; inset: 0; background-color: rgba(0,0,0,0.5); z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
+        .modal-content { background-color: #ffffff; w-width: 100%; width: 100%; max-width: 448px; border-top-left-radius: 20px; border-top-right-radius: 20px; padding: 24px; box-shadow: 0 -4px 6px rgba(0,0,0,0.05); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 16px; }
+        .modal-title { font-size: 18px; font-weight: bold; }
+        .close-btn { background-color: #f3f4f6; border: none; padding: 6px 16px; border-radius: 9999px; font-weight: bold; cursor: pointer; }
+        .modal-status { font-size: 14px; margin-bottom: 16px; font-weight: 500; }
+        .btn-group { display: flex; flex-direction: column; gap: 10px; }
+        
+        /* ボタン基本 */
+        .btn { width: 100%; font-weight: bold; padding: 14px; border-radius: 12px; border: none; cursor: pointer; text-align: center; font-size: 15px; }
+        .btn-blue { background-color: #2563eb; color: #ffffff; box-shadow: 0 2px 4px rgba(37,99,235,0.2); }
+        .btn-green { background-color: #16a34a; color: #ffffff; box-shadow: 0 2px 4px rgba(22,163,74,0.2); }
+        .btn-red-light { background-color: #fee2e2; color: #dc2626; }
+        
+        /* 注文入力画面（初期は非表示） */
+        .order-screen { position: fixed; inset: 0; background-color: #ffffff; z-index: 40; display: flex; flex-direction: column; padding: 16px; }
+        .order-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 16px; }
+        .back-btn { color: #2563eb; font-weight: bold; background: none; border: none; font-size: 16px; cursor: pointer; }
+        .menu-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 80px; }
+        
+        .menu-item { display: flex; justify-content: space-between; align-items: center; padding: 16px; background-color: #f9fafb; border-radius: 12px; border: 1px solid #e5e7eb; }
+        .menu-info .menu-name { font-weight: bold; display: block; color: #111827; }
+        .menu-info .menu-price { font-size: 13px; color: #6b7280; }
+        
+        .qty-controls { display: flex; align-items: center; gap: 12px; }
+        .qty-btn { width: 32px; height: 32px; border-radius: 9999px; border: 1px solid #d1d5db; background-color: #ffffff; font-weight: bold; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .qty-btn:active { background-color: #f3f4f6; }
+        .qty-text { font-size: 16px; font-weight: bold; width: 24px; text-align: center; }
+        
+        .order-footer { position: fixed; bottom: 0; left: 0; right: 0; background-color: #ffffff; border-top: 1px solid #e5e7eb; padding: 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 -4px 6px rgba(0,0,0,0.02); }
+        .total-info .total-label { font-size: 11px; color: #9ca3af; display: block; }
+        .total-info .total-val { font-size: 20px; font-weight: 900; color: #111827; }
+        .btn-submit { background-color: #2563eb; color: #ffffff; font-weight: bold; padding: 12px 24px; border-radius: 12px; border: none; cursor: pointer; box-shadow: 0 4px 6px rgba(37,99,235,0.2); }
+        
+        .hidden { display: none !important; }
+    </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans antialiased pb-24">
+<body>
 
     <!-- 【メイン：卓一覧画面】 -->
     <div id="view-tables">
-        <header class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center z-10 shadow-sm">
-            <div>
-                <h1 class="text-lg font-bold text-gray-900">スマートPOS</h1>
-                <p class="text-xs text-gray-500">店舗・卓状況一覧</p>
-            </div>
+        <header>
+            <h1>スマートPOS</h1>
+            <p>店舗・卓状況一覧</p>
         </header>
 
-        <!-- 稼働状況サマリー -->
-        <section class="p-4 grid grid-cols-3 gap-3 bg-white border-b border-gray-200">
-            <div class="bg-gray-50 p-3 rounded-xl text-center"><span class="text-xs text-gray-500 block mb-1">総座席数</span><span class="text-xl font-bold text-gray-700">10 卓</span></div>
-            <div class="bg-green-50 p-3 rounded-xl text-center"><span class="text-xs text-green-700 block mb-1">空席</span><span id="summary-empty" class="text-xl font-bold text-green-600">10</span></div>
-            <div class="bg-amber-50 p-3 rounded-xl text-center"><span class="text-xs text-amber-700 block mb-1">利用中</span><span id="summary-using" class="text-xl font-bold text-amber-600">0</span></div>
-        </section>
+        <div class="summary-box">
+            <div class="summary-item">総卓数: 10</div>
+            <div class="summary-item summary-empty">空席: <span id="summary-empty">10</span></div>
+            <div class="summary-item summary-using">利用中: <span id="summary-using">0</span></div>
+        </div>
 
-        <!-- 卓一覧グリッド -->
-        <main class="p-4">
-            <div class="grid grid-cols-2 gap-4" id="table-grid"></div>
-        </main>
+        <main class="table-grid" id="table-grid"></main>
 
         <!-- 操作パネル（ボトムシート） -->
-        <div id="bottom-sheet" class="fixed inset-0 bg-black/40 z-50 flex items-end justify-center hidden opacity-0 transition-opacity duration-300">
-            <div class="absolute inset-0" onclick="closeSheet()"></div>
-            <div class="relative bg-white w-full max-w-md rounded-t-2xl p-6 shadow-xl transform translate-y-full transition-transform duration-300" id="sheet-content">
-                <div class="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-5"></div>
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <h3 id="sheet-table-title" class="text-xl font-bold text-gray-900"></h3>
-                        <p id="sheet-table-status" class="text-sm font-medium mt-1"></p>
-                    </div>
-                    <button onclick="closeSheet()" class="text-gray-400 p-2 bg-gray-100 rounded-full font-bold">✕</button>
+        <div id="bottom-sheet" class="modal-overlay hidden">
+            <div class="absolute" style="position:absolute; inset:0;" onclick="closeSheet()"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="sheet-table-title" class="modal-title"></h3>
+                    <button onclick="closeSheet()" class="close-btn">閉じる</button>
                 </div>
-                <div class="space-y-3" id="sheet-actions"></div>
+                <p id="sheet-table-status" class="modal-status"></p>
+                <div class="btn-group" id="sheet-actions"></div>
             </div>
         </div>
     </div>
 
     <!-- 【サブ：注文入力・メニュー選択画面】 -->
-    <div id="view-order" class="hidden fixed inset-0 bg-white z-40 flex flex-col">
-        <header class="bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center shadow-sm">
-            <button onclick="backToTables()" class="text-blue-600 font-bold p-1">← 戻る</button>
-            <h2 id="order-screen-title" class="text-lg font-bold text-gray-900">注文入力</h2>
-            <div class="w-10"></div>
+    <div id="view-order" class="order-screen hidden">
+        <header class="order-header">
+            <button onclick="backToTables()" class="back-btn">← 戻る</button>
+            <h2 id="order-screen-title" style="font-size:18px; font-weight:bold;">注文入力</h2>
+            <div style="width: 48px;"></div>
         </header>
 
-        <!-- メニュー・数量選択リスト -->
-        <main class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50" id="menu-list">
-            <!-- JavaScriptで自動生成 -->
-        </main>
+        <main class="menu-list" id="menu-list"></main>
 
-        <!-- 下部注文確定バー -->
-        <footer class="bg-white border-t border-gray-200 p-4 shadow-lg flex justify-between items-center">
-            <div>
-                <span class="text-xs text-gray-400 block">合計金額</span>
-                <span id="order-total-amount" class="text-xl font-black text-gray-900">¥0</span>
+        <footer class="order-footer">
+            <div class="total-info">
+                <span class="total-label">合計金額</span>
+                <span id="order-total-amount" class="total-val">¥0</span>
             </div>
-            <button onclick="submitOrder()" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-xl shadow-md active:bg-blue-700">
-                注文を確定する
-            </button>
+            <button onclick="submitOrder()" class="btn-submit">注文を確定する</button>
         </footer>
     </div>
 
@@ -86,16 +133,12 @@
         let currentCart = {};
 
         function initApp() {
-            const savedData = localStorage.getItem('pos_demo_tables');
+            const savedData = localStorage.getItem('pos_demo_v4');
             if (savedData) {
                 tables = JSON.parse(savedData);
             } else {
                 tables = Array.from({ length: 10 }, (_, i) => ({
-                    id: i + 1,
-                    table_number: i + 1,
-                    status: 'empty',
-                    current_amount: 0,
-                    orders: {}
+                    id: i + 1, table_number: i + 1, status: 'empty', current_amount: 0, orders: {}
                 }));
                 saveToStorage();
             }
@@ -103,7 +146,7 @@
         }
 
         function saveToStorage() {
-            localStorage.setItem('pos_demo_tables', JSON.stringify(tables));
+            localStorage.setItem('pos_demo_v4', JSON.stringify(tables));
         }
 
         function renderTables() {
@@ -116,85 +159,18 @@
                 if (isUsing) usingCount++; else emptyCount++;
 
                 const card = document.createElement('div');
-                card.className = `p-5 rounded-2xl border transition-all duration-150 active:scale-98 cursor-pointer shadow-sm ${
-                    isUsing ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-white border-gray-200 text-gray-700'
-                }`;
-                card.onclick = () => openSheet(table.id);
-                card.innerHTML = `
-                    <div class="flex justify-between items-start mb-4">
-                        <span class="text-lg font-bold">${table.table_number}番卓</span>
-                        <span class="px-2.5 py-1 text-xs font-bold rounded-full ${isUsing ? 'bg-amber-200 text-amber-800' : 'bg-green-100 text-green-700'}">${isUsing ? '利用中' : '空です'}</span>
-                    </div>
-                    <div class="text-right mt-2">
-                        <span class="text-xs text-gray-400 block">現在金額</span>
-                        <span class="text-lg font-black ${isUsing ? 'text-amber-700' : 'text-gray-300'}">¥${Number(table.current_amount).toLocaleString()}</span>
-                    </div>`;
+                card.className = "table-card" + (isUsing ? " using" : "");
+                card.onclick = function() { openSheet(table.id); };
+                card.innerHTML = 
+                    '<div class="card-header"><span>' + table.table_number + '番卓</span>' +
+                    '<span class="status-badge ' + (isUsing ? 'using' : 'empty') + '">' + (isUsing ? '利用中' : '空席') + '</span></div>' +
+                    '<div class="card-amount">¥' + Number(table.current_amount).toLocaleString() + '</div>';
                 grid.appendChild(card);
             });
+            
             document.getElementById('summary-empty').innerText = emptyCount;
             document.getElementById('summary-using').innerText = usingCount;
         }
 
         function openSheet(tableId) {
             activeTableId = tableId;
-            const table = tables.find(t => t.id === tableId);
-            document.getElementById('sheet-table-title').innerText = `${table.table_number}番卓`;
-            
-            const statusEl = document.getElementById('sheet-table-status');
-            const actionsEl = document.getElementById('sheet-actions');
-
-            if (table.status === 'using') {
-                statusEl.innerHTML = `<span class="text-amber-600 font-bold">● 利用中</span> (現在: ¥${Number(table.current_amount).toLocaleString()})`;
-                actionsEl.innerHTML = `
-                    <button onclick="openOrderScreen()" class="w-full bg-blue-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-md">注文を追加・変更する</button>
-                    <button onclick="clearTable()" class="w-full bg-gray-100 text-red-600 font-bold py-3.5 px-4 rounded-xl">会計して空席に戻す</button>
-                `;
-            } else {
-                statusEl.innerHTML = `<span class="text-green-600 font-bold">○ 空席</span>`;
-                actionsEl.innerHTML = `
-                    <button onclick="openOrderScreen()" class="w-full bg-green-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-md">客入れ＆注文を入力する</button>
-                `;
-            }
-            
-            const sheet = document.getElementById('bottom-sheet');
-            const content = document.getElementById('sheet-content');
-            sheet.classList.remove('hidden');
-            setTimeout(() => { sheet.classList.add('opacity-100'); content.classList.remove('translate-y-full'); }, 10);
-        }
-
-        function closeSheet() {
-            const sheet = document.getElementById('bottom-sheet');
-            const content = document.getElementById('sheet-content');
-            sheet.classList.remove('opacity-100'); content.classList.add('translate-y-full');
-            setTimeout(() => { sheet.classList.add('hidden'); activeTableId = null; }, 300);
-        }
-
-        function openOrderScreen() {
-            const table = tables.find(t => t.id === activeTableId);
-            document.getElementById('order-screen-title').innerText = `${table.table_number}番卓 の注文`;
-            currentCart = Object.assign({}, table.orders || {});
-            
-            renderMenuList();
-            updateOrderTotal();
-
-            document.getElementById('view-tables').classList.add('hidden');
-            document.getElementById('view-order').classList.remove('hidden');
-            closeSheet();
-        }
-
-        function backToTables() {
-            document.getElementById('view-order').classList.add('hidden');
-            document.getElementById('view-tables').classList.remove('hidden');
-        }
-
-        function renderMenuList() {
-            const container = document.getElementById('menu-list');
-            container.innerHTML = '';
-
-            menuItems.forEach(item => {
-                const count = currentCart[item.id] || 0;
-                const div = document.createElement('div');
-                div.className = 'flex justify-between items-center p-4 bg-white rounded-xl border border-gray-200 shadow-sm';
-                div.innerHTML = `
-                    <div>
-                        <span class="font-bold block text-gray-900">${item.name}</span>
